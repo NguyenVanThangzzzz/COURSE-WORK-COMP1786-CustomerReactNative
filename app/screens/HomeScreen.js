@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, SafeAreaView } from "react-native";
+import { View, Text, FlatList, StyleSheet, SafeAreaView, TouchableOpacity } from "react-native";
 import { onValue, ref } from "firebase/database";
 import { database } from "../firebaseConfig";
 
@@ -11,12 +11,7 @@ export default function HomeScreen({ navigation }) {
 
         onValue(coursesRef, (snapshot) => {
             const coursesData = snapshot.val();
-            console.log("Courses data:", JSON.stringify(coursesData, null, 2));
-
             const coursesList = coursesData ? Object.entries(coursesData).map(([courseId, courseValue]) => {
-                console.log(`Processing course: ${courseId}`);
-
-                // Extract class data from course object
                 const classes = Object.entries(courseValue)
                     .filter(([key, value]) => typeof value === 'object' && value.teacher && value.date && value.comments)
                     .map(([classId, classValue]) => ({
@@ -24,9 +19,6 @@ export default function HomeScreen({ navigation }) {
                         ...classValue
                     }));
 
-                console.log(`Classes for course ${courseId}:`, classes);
-
-                // Extract course details
                 const { capacity, classType, dayOfWeek, description, duration, pricePerClass, timeOfCourse } = courseValue;
 
                 return {
@@ -42,41 +34,23 @@ export default function HomeScreen({ navigation }) {
                 };
             }) : [];
 
-            console.log("Processed courses with classes:", JSON.stringify(coursesList, null, 2));
             setCourses(coursesList);
         });
     }, []);
 
-    const renderClassItem = ({ item }) => (
-        <View style={styles.classItem}>
-            <Text style={styles.classInfo}>Teacher: {item.teacher}</Text>
-            <Text style={styles.classInfo}>Date: {item.date}</Text>
-            <Text style={styles.classInfo}>Comments: {item.comments}</Text>
-        </View>
-    );
-
     const renderCourseItem = ({ item }) => (
-        <View style={styles.courseItem}>
-            <Text style={styles.courseTitle}>{item.classType} Class</Text>
-            <Text style={styles.courseInfo}>Day: {item.dayOfWeek}</Text>
-            <Text style={styles.courseInfo}>Time: {item.timeOfCourse}</Text>
-            <Text style={styles.courseInfo}>Capacity: {item.capacity}</Text>
-            <Text style={styles.courseInfo}>Duration: {item.duration}</Text>
-            <Text style={styles.courseInfo}>Price per Class: {item.pricePerClass}</Text>
-            <Text style={styles.courseDescription}>Description: {item.description}</Text>
-
-            <Text style={styles.classesHeader}>Classes:</Text>
-            {item.classes && item.classes.length > 0 ? (
-                <FlatList
-                    data={item.classes}
-                    renderItem={renderClassItem}
-                    keyExtractor={(classItem) => classItem.id}
-                    listKey={`classes-${item.id}`}
-                />
-            ) : (
-                <Text style={styles.noClassesText}>No classes available for this course.</Text>
-            )}
-        </View>
+        <TouchableOpacity onPress={() => navigation.navigate('ClassList', { course: item })}>
+            <View style={styles.courseItem}>
+                <Text style={styles.courseTitle}>{item.classType} Class</Text>
+                <Text style={styles.courseInfo}>Day: {item.dayOfWeek}</Text>
+                <Text style={styles.courseInfo}>Time: {item.timeOfCourse}</Text>
+                <Text style={styles.courseInfo}>Capacity: {item.capacity}</Text>
+                <Text style={styles.courseInfo}>Duration: {item.duration}</Text>
+                <Text style={styles.courseInfo}>Price per Class: {item.pricePerClass}</Text>
+                <Text style={styles.courseDescription}>Description: {item.description}</Text>
+                <Text style={styles.classCount}>Number of Classes: {item.classes.length}</Text>
+            </View>
+        </TouchableOpacity>
     );
 
     return (
@@ -135,6 +109,12 @@ const styles = StyleSheet.create({
         marginTop: 8,
         marginBottom: 8,
         color: "#666",
+    },
+    classCount: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#007AFF',
+        marginTop: 8,
     },
     classesHeader: {
         fontSize: 16,
