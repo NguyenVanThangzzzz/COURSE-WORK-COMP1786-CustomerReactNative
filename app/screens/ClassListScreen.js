@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
 import { auth, database } from '../firebaseConfig';
-import { ref, push, onValue } from 'firebase/database';
+import { ref, update, onValue, get } from 'firebase/database';
 
 export default function ClassListScreen({ route }) {
     const { course } = route.params;
@@ -9,13 +9,12 @@ export default function ClassListScreen({ route }) {
 
     useEffect(() => {
         const userId = auth.currentUser.uid;
-        const cartRef = ref(database, `carts/${userId}`);
+        const userRef = ref(database, `users/${userId}`);
 
-        const unsubscribe = onValue(cartRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const items = Object.values(data).map(item => item.id);
-                setCartItems(items);
+        const unsubscribe = onValue(userRef, (snapshot) => {
+            const userData = snapshot.val();
+            if (userData && userData.cart) {
+                setCartItems(Object.values(userData.cart));
             } else {
                 setCartItems([]);
             }
@@ -24,21 +23,34 @@ export default function ClassListScreen({ route }) {
         return () => unsubscribe();
     }, []);
 
-    const addToCart = (classItem) => {
+    const addToCart = async (classItem) => {
         const userId = auth.currentUser.uid;
-        const cartRef = ref(database, `carts/${userId}`);
-        push(cartRef, {
-            id: classItem.id,
-            classType: course.classType,
-            date: classItem.date,
-            teacher: classItem.teacher,
-            pricePerClass: course.pricePerClass,
-        }).then(() => {
+        const userRef = ref(database, `users/${userId}`);
+
+        try {
+            const snapshot = await get(userRef);
+            const userData = snapshot.val() || {};
+            const currentCart = userData.cart || {};
+
+            const newCartItem = {
+                id: classItem.id,
+                classType: course.classType,
+                date: classItem.date,
+                teacher: classItem.teacher,
+                pricePerClass: course.pricePerClass,
+            };
+
+            const updatedCart = {
+                ...currentCart,
+                [classItem.id]: newCartItem
+            };
+
+            await update(userRef, { cart: updatedCart });
             Alert.alert("Success", "Class added to cart!");
-        }).catch((error) => {
+        } catch (error) {
             console.error("Error adding to cart: ", error);
             Alert.alert("Error", "Failed to add class to cart. Please try again.");
-        });
+        }
     };
 
     const renderClassItem = ({ item }) => (
@@ -46,7 +58,7 @@ export default function ClassListScreen({ route }) {
             <Text style={styles.classInfo}>Teacher: {item.teacher}</Text>
             <Text style={styles.classInfo}>Date: {item.date}</Text>
             <Text style={styles.classInfo}>Comments: {item.comments}</Text>
-            {!cartItems.includes(item.id) && (
+            {!cartItems.some(cartItem => cartItem.id === item.id) && (
                 <TouchableOpacity style={styles.addToCartButton} onPress={() => addToCart(item)}>
                     <Text style={styles.addToCartButtonText}>Add to Cart</Text>
                 </TouchableOpacity>

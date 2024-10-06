@@ -1,23 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { auth, database } from '../firebaseConfig';
-import { ref, onValue, remove, update, get } from 'firebase/database';
+import { ref, onValue, update, get } from 'firebase/database';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function CartScreen() {
     const [cartItems, setCartItems] = useState([]);
 
     useEffect(() => {
         const userId = auth.currentUser.uid;
-        const cartRef = ref(database, `carts/${userId}`);
+        const userRef = ref(database, `users/${userId}`);
 
-        const unsubscribe = onValue(cartRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const items = Object.entries(data).map(([key, value]) => ({
-                    id: key,
-                    ...value,
-                }));
-                setCartItems(items);
+        const unsubscribe = onValue(userRef, (snapshot) => {
+            const userData = snapshot.val();
+            if (userData && userData.cart) {
+                setCartItems(Object.values(userData.cart));
             } else {
                 setCartItems([]);
             }
@@ -40,29 +37,23 @@ export default function CartScreen() {
     const processCheckout = async () => {
         const userId = auth.currentUser.uid;
         const userRef = ref(database, `users/${userId}`);
-        const cartRef = ref(database, `carts/${userId}`);
 
         try {
-            // Get current user data
-            const userSnapshot = await get(userRef);
-            const userData = userSnapshot.val() || {};
+            const snapshot = await get(userRef);
+            const userData = snapshot.val() || {};
 
-            // Get current timestamp
             const timestamp = Date.now();
+            const purchasedItems = cartItems.map(item => ({
+                ...item,
+                purchaseTimestamp: timestamp
+            }));
 
-            // Prepare new purchase data
-            const newPurchase = {
-                timestamp: timestamp,
-                items: cartItems
-            };
+            const updatedItems = userData.items ? [...userData.items, ...purchasedItems] : purchasedItems;
 
-            // Update user data with new purchase
-            const updatedPurchases = userData.purchases ? [...userData.purchases, newPurchase] : [newPurchase];
-
-            await update(userRef, { purchases: updatedPurchases });
-
-            // Clear the cart
-            await remove(cartRef);
+            await update(userRef, {
+                items: updatedItems,
+                cart: null // Clear the cart
+            });
 
             Alert.alert("Success", "Thank you for your purchase!");
         } catch (error) {
@@ -71,11 +62,48 @@ export default function CartScreen() {
         }
     };
 
+    const deleteCartItem = async (itemId) => {
+        const userId = auth.currentUser.uid;
+        const userRef = ref(database, `users/${userId}`);
+
+        try {
+            const snapshot = await get(userRef);
+            const userData = snapshot.val() || {};
+            const currentCart = userData.cart || {};
+
+            delete currentCart[itemId];
+
+            await update(userRef, { cart: currentCart });
+            Alert.alert("Success", "Item removed from cart!");
+        } catch (error) {
+            console.error("Error removing item from cart: ", error);
+            Alert.alert("Error", "Failed to remove item from cart. Please try again.");
+        }
+    };
+
+    const deleteAllCartItems = async () => {
+        const userId = auth.currentUser.uid;
+        const userRef = ref(database, `users/${userId}`);
+
+        try {
+            await update(userRef, { cart: null });
+            Alert.alert("Success", "All items removed from cart!");
+        } catch (error) {
+            console.error("Error removing all items from cart: ", error);
+            Alert.alert("Error", "Failed to remove all items from cart. Please try again.");
+        }
+    };
+
     const renderCartItem = ({ item }) => (
         <View style={styles.cartItem}>
-            <Text style={styles.itemText}>{item.classType} - {item.date}</Text>
-            <Text style={styles.itemText}>Teacher: {item.teacher}</Text>
-            <Text style={styles.itemText}>Price: {item.pricePerClass}</Text>
+            <View style={styles.itemInfo}>
+                <Text style={styles.itemText}>{item.classType} - {item.date}</Text>
+                <Text style={styles.itemText}>Teacher: {item.teacher}</Text>
+                <Text style={styles.itemText}>Price: {item.pricePerClass}</Text>
+            </View>
+            <TouchableOpacity onPress={() => deleteCartItem(item.id)} style={styles.deleteButton}>
+                <Ionicons name="trash-outline" size={24} color="red" />
+            </TouchableOpacity>
         </View>
     );
 
@@ -91,6 +119,9 @@ export default function CartScreen() {
                     />
                     <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
                         <Text style={styles.checkoutButtonText}>Checkout</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteAllButton} onPress={deleteAllCartItems}>
+                        <Text style={styles.deleteAllButtonText}>Delete All</Text>
                     </TouchableOpacity>
                 </>
             ) : (
@@ -116,10 +147,19 @@ const styles = StyleSheet.create({
         padding: 15,
         borderRadius: 10,
         marginBottom: 10,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    itemInfo: {
+        flex: 1,
     },
     itemText: {
         fontSize: 16,
         marginBottom: 5,
+    },
+    deleteButton: {
+        padding: 5,
     },
     checkoutButton: {
         backgroundColor: '#007AFF',
@@ -129,6 +169,18 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     checkoutButtonText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    deleteAllButton: {
+        backgroundColor: 'red',
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    deleteAllButtonText: {
         color: 'white',
         fontSize: 18,
         fontWeight: 'bold',
