@@ -1,14 +1,56 @@
-import React from 'react';
-import { View, Text, FlatList, StyleSheet, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import { auth, database } from '../firebaseConfig';
+import { ref, push, onValue } from 'firebase/database';
 
 export default function ClassListScreen({ route }) {
     const { course } = route.params;
+    const [cartItems, setCartItems] = useState([]);
+
+    useEffect(() => {
+        const userId = auth.currentUser.uid;
+        const cartRef = ref(database, `carts/${userId}`);
+
+        const unsubscribe = onValue(cartRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const items = Object.values(data).map(item => item.id);
+                setCartItems(items);
+            } else {
+                setCartItems([]);
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const addToCart = (classItem) => {
+        const userId = auth.currentUser.uid;
+        const cartRef = ref(database, `carts/${userId}`);
+        push(cartRef, {
+            id: classItem.id,
+            classType: course.classType,
+            date: classItem.date,
+            teacher: classItem.teacher,
+            pricePerClass: course.pricePerClass,
+        }).then(() => {
+            Alert.alert("Success", "Class added to cart!");
+        }).catch((error) => {
+            console.error("Error adding to cart: ", error);
+            Alert.alert("Error", "Failed to add class to cart. Please try again.");
+        });
+    };
 
     const renderClassItem = ({ item }) => (
         <View style={styles.classItem}>
             <Text style={styles.classInfo}>Teacher: {item.teacher}</Text>
             <Text style={styles.classInfo}>Date: {item.date}</Text>
             <Text style={styles.classInfo}>Comments: {item.comments}</Text>
+            {!cartItems.includes(item.id) && (
+                <TouchableOpacity style={styles.addToCartButton} onPress={() => addToCart(item)}>
+                    <Text style={styles.addToCartButtonText}>Add to Cart</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 
@@ -100,5 +142,16 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 20,
         marginHorizontal: 16,
+    },
+    addToCartButton: {
+        backgroundColor: '#007AFF',
+        padding: 10,
+        borderRadius: 5,
+        marginTop: 10,
+    },
+    addToCartButtonText: {
+        color: 'white',
+        textAlign: 'center',
+        fontWeight: 'bold',
     },
 });

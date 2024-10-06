@@ -6,20 +6,19 @@ import { signOut } from 'firebase/auth';
 export default function UserScreen({ navigation }) {
     const handleLogout = () => {
         signOut(auth).then(() => {
-            // Đăng xuất thành công
             navigation.replace('Login');
         }).catch((error) => {
-            // Xử lý lỗi nếu có
-            console.error('Lỗi đăng xuất:', error);
+            console.error('Logout error:', error);
         });
     };
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Thông tin người dùng</Text>
+            <Text style={styles.title}>User Information</Text>
             <Text style={styles.email}>{auth.currentUser?.email}</Text>
+            <Text style={styles.userId}>User ID: {auth.currentUser?.uid}</Text>
             <TouchableOpacity style={styles.button} onPress={handleLogout}>
-                <Text style={styles.buttonText}>Đăng xuất</Text>
+                <Text style={styles.buttonText}>Logout</Text>
             </TouchableOpacity>
         </View>
     );
@@ -39,6 +38,10 @@ const styles = StyleSheet.create({
     email: {
         fontSize: 18,
         marginBottom: 30,
+    },
+    userId: {
+        fontSize: 16,
+        marginBottom: 20,
     },
     button: {
         backgroundColor: '#007AFF',

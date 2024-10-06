@@ -10,6 +10,7 @@ import ClassListScreen from "../screens/ClassListScreen";
 import LoginScreen from "../screens/LoginScreen";
 import SignupScreen from "../screens/SignupScreen";
 import UserScreen from "../screens/UserScreen";
+import CartScreen from "../screens/CartScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -25,6 +26,8 @@ function MainTabs() {
                         iconName = focused ? 'home' : 'home-outline';
                     } else if (route.name === 'UserTab') {
                         iconName = focused ? 'person' : 'person-outline';
+                    } else if (route.name === 'CartTab') {
+                        iconName = focused ? 'cart' : 'cart-outline';
                     }
 
                     return <Ionicons name={iconName} size={size} color={color} />;
@@ -37,6 +40,11 @@ function MainTabs() {
                 name="HomeTab"
                 component={HomeScreen}
                 options={{ title: 'Home', headerShown: false }}
+            />
+            <Tab.Screen
+                name="CartTab"
+                component={CartScreen}
+                options={{ title: 'Cart', headerShown: false }}
             />
             <Tab.Screen
                 name="UserTab"
