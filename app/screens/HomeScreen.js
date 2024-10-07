@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, StyleSheet, SafeAreaView, TouchableOpacity } from "react-native";
+import { View, Text, FlatList, StyleSheet, SafeAreaView, TouchableOpacity, TextInput } from "react-native";
 import { onValue, ref } from "firebase/database";
 import { database } from "../firebaseConfig";
 
 export default function HomeScreen({ navigation }) {
     const [courses, setCourses] = useState([]);
+    const [filteredCourses, setFilteredCourses] = useState([]);
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         const coursesRef = ref(database, "courses");
@@ -35,8 +37,32 @@ export default function HomeScreen({ navigation }) {
             }) : [];
 
             setCourses(coursesList);
+            setFilteredCourses(coursesList);
         });
     }, []);
+
+    useEffect(() => {
+        filterCourses();
+    }, [searchQuery, courses]);
+
+    const filterCourses = () => {
+        if (searchQuery.trim() === "") {
+            setFilteredCourses(courses);
+            return;
+        }
+
+        const lowercasedQuery = searchQuery.toLowerCase();
+        const filtered = courses.filter(course =>
+            course.classType.toLowerCase().includes(lowercasedQuery) ||
+            course.timeOfCourse.toLowerCase().includes(lowercasedQuery) ||
+            course.classes.some(classItem =>
+                classItem.date.toLowerCase().includes(lowercasedQuery) ||
+                classItem.teacher.toLowerCase().includes(lowercasedQuery)
+            )
+        );
+
+        setFilteredCourses(filtered);
+    };
 
     const renderCourseItem = ({ item }) => (
         <TouchableOpacity onPress={() => navigation.navigate('ClassList', { course: item })}>
@@ -49,6 +75,13 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.courseInfo}>Price per Class: {item.pricePerClass}</Text>
                 <Text style={styles.courseDescription}>Description: {item.description}</Text>
                 <Text style={styles.classCount}>Number of Classes: {item.classes.length}</Text>
+                <Text style={styles.classesHeader}>Classes:</Text>
+                {item.classes.map((classItem, index) => (
+                    <View key={index} style={styles.classItem}>
+                        <Text style={styles.classInfo}>Date: {classItem.date}</Text>
+                        <Text style={styles.classInfo}>Teacher: {classItem.teacher}</Text>
+                    </View>
+                ))}
             </View>
         </TouchableOpacity>
     );
@@ -56,8 +89,16 @@ export default function HomeScreen({ navigation }) {
     return (
         <SafeAreaView style={styles.container}>
             <Text style={styles.header}>Available Courses</Text>
+            <View style={styles.searchContainer}>
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search by course name, time, class date or teacher"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                />
+            </View>
             <FlatList
-                data={courses}
+                data={filteredCourses}
                 renderItem={renderCourseItem}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContainer}
@@ -77,6 +118,17 @@ const styles = StyleSheet.create({
         textAlign: "center",
         marginVertical: 20,
         color: "#333",
+    },
+    searchContainer: {
+        paddingHorizontal: 16,
+        marginBottom: 10,
+    },
+    searchInput: {
+        height: 40,
+        borderColor: 'gray',
+        borderWidth: 1,
+        borderRadius: 5,
+        paddingHorizontal: 10,
     },
     listContainer: {
         paddingHorizontal: 16,
@@ -119,25 +171,17 @@ const styles = StyleSheet.create({
     classesHeader: {
         fontSize: 16,
         fontWeight: 'bold',
-        marginTop: 16,
-        marginBottom: 8,
-        color: '#333',
+        marginTop: 10,
+        marginBottom: 5,
     },
     classItem: {
         backgroundColor: '#f0f0f0',
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 8,
+        borderRadius: 5,
+        padding: 10,
+        marginBottom: 5,
     },
     classInfo: {
         fontSize: 14,
-        color: '#444',
-        marginBottom: 4,
-    },
-    noClassesText: {
-        fontSize: 14,
-        fontStyle: 'italic',
-        color: '#666',
-        marginTop: 8,
+        color: '#333',
     },
 });
