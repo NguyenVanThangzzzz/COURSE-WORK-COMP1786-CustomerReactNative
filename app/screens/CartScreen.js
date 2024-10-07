@@ -48,17 +48,20 @@ export default function CartScreen() {
                 purchaseTimestamp: timestamp
             }));
 
-            const updatedItems = userData.items ? [...userData.items, ...purchasedItems] : purchasedItems;
+            // Kiểm tra xem userData.items có tồn tại không
+            const currentItems = userData.items || [];
+            const updatedItems = [...currentItems, ...purchasedItems];
 
             await update(userRef, {
                 items: updatedItems,
-                cart: null // Clear the cart
+                cart: null // Xóa giỏ hàng
             });
 
-            Alert.alert("Success", "Thank you for your purchase!");
+            Alert.alert("Thành công", "Cảm ơn bạn đã mua hàng!");
+            setCartItems([]); // Cập nhật state local
         } catch (error) {
-            console.error("Error processing checkout: ", error);
-            Alert.alert("Error", "Failed to process your purchase. Please try again.");
+            console.error("Lỗi khi xử lý thanh toán: ", error);
+            Alert.alert("Lỗi", "Không thể xử lý thanh toán. Vui lòng thử lại.");
         }
     };
 

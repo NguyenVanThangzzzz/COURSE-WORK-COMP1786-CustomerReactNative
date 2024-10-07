@@ -1,9 +1,31 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { auth } from '../firebaseConfig';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import { auth, database } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
+import { ref, onValue } from 'firebase/database';
 
 export default function UserScreen({ navigation }) {
+    const [purchasedItems, setPurchasedItems] = useState([]);
+
+    useEffect(() => {
+        const userId = auth.currentUser.uid;
+        const userRef = ref(database, `users/${userId}/items`);
+
+        const unsubscribe = onValue(userRef, (snapshot) => {
+            const items = snapshot.val();
+            if (items) {
+                const itemsArray = Object.values(items);
+                // Sắp xếp các mục theo thời gian mua, mới nhất lên đầu
+                itemsArray.sort((a, b) => b.purchaseTimestamp - a.purchaseTimestamp);
+                setPurchasedItems(itemsArray);
+            } else {
+                setPurchasedItems([]);
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
     const handleLogout = () => {
         signOut(auth).then(() => {
             navigation.replace('Login');
@@ -12,46 +34,103 @@ export default function UserScreen({ navigation }) {
         });
     };
 
-    return (
-        <View style={styles.container}>
-            <Text style={styles.title}>User Information</Text>
-            <Text style={styles.email}>{auth.currentUser?.email}</Text>
-            <Text style={styles.userId}>User ID: {auth.currentUser?.uid}</Text>
-            <TouchableOpacity style={styles.button} onPress={handleLogout}>
-                <Text style={styles.buttonText}>Logout</Text>
-            </TouchableOpacity>
+    const renderPurchasedItem = (item, index) => (
+        <View key={index} style={styles.itemContainer}>
+            <Text style={styles.itemText}>{item.classType} - {item.date}</Text>
+            <Text style={styles.itemText}>Teacher: {item.teacher}</Text>
+            <Text style={styles.itemText}>Price: {item.pricePerClass}</Text>
         </View>
+    );
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+                <View style={styles.header}>
+                    <Text style={styles.title}>User Profile</Text>
+                    <Text style={styles.email}>{auth.currentUser?.email}</Text>
+                </View>
+
+                <View style={styles.purchasedItemsSection}>
+                    <Text style={styles.sectionTitle}>Purchased Classes</Text>
+                    {purchasedItems.length > 0 ? (
+                        purchasedItems.map(renderPurchasedItem)
+                    ) : (
+                        <Text style={styles.noItemsText}>No purchased classes yet.</Text>
+                    )}
+                </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+    },
+    scrollContent: {
+        flexGrow: 1,
         padding: 20,
+    },
+    header: {
+        alignItems: 'center',
+        marginBottom: 30,
     },
     title: {
         fontSize: 24,
-        marginBottom: 20,
+        fontWeight: 'bold',
+        marginBottom: 10,
     },
     email: {
         fontSize: 18,
-        marginBottom: 30,
+        color: '#666',
     },
-    userId: {
-        fontSize: 16,
+    purchasedItemsSection: {
         marginBottom: 20,
     },
-    button: {
-        backgroundColor: '#007AFF',
-        padding: 10,
-        borderRadius: 5,
-        width: '100%',
-        alignItems: 'center',
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 15,
     },
-    buttonText: {
-        color: 'white',
+    itemContainer: {
+        backgroundColor: 'white',
+        borderRadius: 10,
+        padding: 15,
+        marginBottom: 10,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.23,
+        shadowRadius: 2.62,
+        elevation: 4,
+    },
+    itemText: {
         fontSize: 16,
+        marginBottom: 5,
+    },
+    noItemsText: {
+        fontSize: 16,
+        fontStyle: 'italic',
+        color: '#666',
+    },
+    logoutButton: {
+        backgroundColor: '#ff3b30',
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginHorizontal: 20,
+        marginBottom: 20,
+    },
+    logoutButtonText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
     },
 });
